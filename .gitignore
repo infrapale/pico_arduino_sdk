@@ -1,5 +1,7 @@
 # Prerequisites
 *.d
+#secrets
+libraries/myCodes
 
 # Compiled Object files
 *.slo
