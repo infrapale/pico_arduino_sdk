@@ -19,10 +19,14 @@ TFT_eSPI tft = TFT_eSPI();       // Invoke custom library
 #define TFT_GREY 0x5AEB
 
 #define LOOP_PERIOD 35 // Display updates every 35 ms
+#define NBR_SECTIONS 4
+
+//#define DEG_TO_RAD  0.0174532925
+
 
 typedef struct {
-  uint16_t x;
-  uint16_t y;
+  int16_t x;
+  int16_t y;
 } xy_st;
 
 typedef struct {
@@ -34,13 +38,30 @@ typedef struct {
 } box_st;
 
 typedef struct {
+    int16_t range[2];
+    uint16_t color;
+} section_st;
+
+typedef struct {
     xy_st       base;
     uint16_t    color;
     uint16_t    len;
+    int16_t    range[2];
+    int16_t    full_range;
+    xy_st       prev_xy[2];
+    section_st  section[NBR_SECTIONS];
 } needle_st;
+
+typedef struct{
+  float max;
+  float min;
+  float value;
+} scale_st;
 
 typedef struct {
     box_st      box;
+    char        label[12];
+    scale_st    scale;
     needle_st   needle;
 } meter_st;
 
@@ -60,10 +81,13 @@ int d = 0;
 meter_st meter; 
 
 
-void setup(void) {
+void setup(void) 
+{
+  delay(3000);
   tft.init();
   tft.setRotation(3);
-  Serial.begin(57600); // For debug
+  Serial.begin(9600); // For debug
+  Serial.println("FTFT_Pico" );
   tft.fillScreen(TFT_BLACK);
   pinMode(TFT_BL, OUTPUT);  
   
@@ -75,19 +99,42 @@ void setup(void) {
     meter.box.dim.y   = TFT_WIDTH-80;
     meter.box.mid.x   = meter.box.dim.x / 2;
     meter.box.mid.y   = meter.box.dim.y / 2;
-    meter.box.fill    = ILI9341_LIGHTGREY;
+    meter.box.fill    = TFT_WHITE;
     meter.box.border  = ILI9341_MAROON;
+    strcpy(meter.label, "Outdoor C");
+    meter.scale.min   = 1.5;
+    meter.scale.max   = 5.0;
+    meter.scale.value = 2.0;
+
+
+    meter.needle.range[0] = 20;
+    meter.needle.range[1] = 160;
+    meter.needle.full_range = meter.needle.range[1] -meter.needle.range[0];
+    
+    meter.needle.section[0].range[0] = meter.needle.range[0] + (meter.needle.full_range * 0);
+    meter.needle.section[0].range[1] = meter.needle.range[0] + (meter.needle.full_range * 0.2);
+    meter.needle.section[1].range[0] = meter.needle.range[0] + (meter.needle.full_range * 0.2);
+    meter.needle.section[1].range[1] = meter.needle.range[0] + (meter.needle.full_range * 0.4);
+    meter.needle.section[2].range[0] = meter.needle.range[0] + (meter.needle.full_range * 0.4);
+    meter.needle.section[2].range[1] = meter.needle.range[0] + (meter.needle.full_range * 0.7);
+    meter.needle.section[3].range[0] = meter.needle.range[0] + (meter.needle.full_range * 0.7);
+    meter.needle.section[3].range[1] = meter.needle.range[0] + (meter.needle.full_range * 1.0);
+
+    meter.needle.section[0].color = ILI9341_LIGHTGREY;
+    meter.needle.section[1].color = TFT_YELLOW;
+    meter.needle.section[2].color = TFT_ORANGE;
+    meter.needle.section[3].color = TFT_RED;
 
     meter.needle.base.x = meter.box.mid.x; 
-    meter.needle.base.y = meter.box.dim.y * 10 / 8;  
-    meter.needle.len    = meter.needle.base.y * 7/10;  
+    meter.needle.base.y = meter.box.dim.y * 17 / 16;  
+    meter.needle.len    = meter.needle.base.y * 8/10;  
     meter.needle.color  = ILI9341_RED;       
 
+    
 
 
 
-
-  analogMeter(); // Draw analogue meter
+  //analogMeter(); // Draw analogue meter
 
   // Draw 6 linear meters
   /*
@@ -102,45 +149,111 @@ void setup(void) {
   updateTime = millis(); // Next update time
 }
 
+void draw_label(meter_st *meter)
+{
+    tft.setTextColor(TFT_BLACK);  // Text colour
+    tft.drawCentreString(meter->label, meter->box.mid.x , meter->box.mid.y, 4); // Comment out to avoid font 4
+    tft.drawCentreString("1.27", meter->box.mid.x , meter->box.mid.y+40, 4); // Comment out to avoid font 4
+}
+
 void draw_box(box_st *box)
 {
   tft.fillRect(box->base.x, box->base.y, box->dim.x, box->dim.y, box->fill);
   tft.drawRect(box->base.x, box->base.y, box->dim.x, box->dim.y, box->border);
 }
 
+void draw_needle(meter_st *meter, int16_t angle )
+{
+    xy_st  xy0;
+    xy0.y = meter->needle.base.y - meter->box.dim.y + 2; 
+    if (angle > 90) xy0.x = -xy0.y * tan((90-angle) * DEG_TO_RAD) ;
+    else xy0.x = -xy0.y / tan(angle * DEG_TO_RAD);
+
+
+    tft.drawLine( 
+      meter->needle.prev_xy[0].x, 
+      meter->needle.prev_xy[0].y, 
+      meter->needle.prev_xy[1].x, 
+      meter->needle.prev_xy[1].y, 
+      TFT_WHITE);
+    draw_label(meter);  
+    meter->needle.prev_xy[0].x=meter->needle.base.x + xy0.x;
+    meter->needle.prev_xy[0].y=meter->needle.base.y - xy0.y;
+    meter->needle.prev_xy[1].x=meter->needle.base.x - cos(angle*DEG_TO_RAD) * meter->needle.len;
+    meter->needle.prev_xy[1].y=meter->needle.base.y - sin(angle*DEG_TO_RAD) * meter->needle.len;
+    tft.drawLine( 
+      meter->needle.prev_xy[0].x, 
+      meter->needle.prev_xy[0].y, 
+      meter->needle.prev_xy[1].x, 
+      meter->needle.prev_xy[1].y, 
+      meter->needle.color);
+
+}
+
 void draw_meter(meter_st *meter)
 {
     draw_box(&meter->box);
     tft.fillCircle(meter->needle.base.x, meter->needle.base.y, 6, meter->needle.color);
-    tft.drawLine(meter->needle.base.x, meter->needle.base.y, 
-                meter->needle.base.x, meter->needle.base.y - meter->needle.len, meter->needle.color);
-
+    
     // Draw ticks every 5 degrees from -50 to +50 degrees (100 deg. FSD swing)
-    for (int i = -60; i < 61; i += 5) {
+    for (int i = meter->needle.range[0]; i <  meter->needle.range[1]; i += 5) {
         // Long scale tick length
         int tl = 15;
 
         // Coodinates of tick to draw
-        float sx = cos((i - 90) * 0.0174532925);
-        float sy = sin((i - 90) * 0.0174532925);
-        uint16_t x0 = sx * (meter->needle.len + tl) + meter->box.mid.x;
-        uint16_t y0 = sy * (meter->needle.len + tl) + meter->box.dim.y;
-        uint16_t x1 = sx * meter->needle.len + meter->box.mid.x;
-        uint16_t y1 = sy * meter->needle.len + meter->box.dim.y;
+        float sx = cos((i ) * DEG_TO_RAD);
+        float sy = sin((i ) * DEG_TO_RAD);
+        uint16_t x0 = -sx * (meter->needle.len + tl) + meter->box.mid.x;
+        uint16_t y0 = -sy * (meter->needle.len + tl) + meter->needle.base.y;
+        uint16_t x1 = -sx * meter->needle.len + meter->box.mid.x;
+        uint16_t y1 = -sy * meter->needle.len + meter->needle.base.y;
         // Coordinates of next tick for zone fill
-        float sx2 = cos((i + 5 - 90) * 0.0174532925);
-        float sy2 = sin((i + 5 - 90) * 0.0174532925);
-        int x2 = sx2 * (meter->needle.len + tl) + meter->box.mid.x;
-        int y2 = sy2 * (meter->needle.len + tl) + meter->box.dim.y;
-        int x3 = sx2 * meter->needle.len + meter->box.mid.x;
-        int y3 = sy2 * meter->needle.len + meter->box.dim.y;
+        float sx2 = cos((i + 5) * DEG_TO_RAD);
+        float sy2 = sin((i + 5) * DEG_TO_RAD);
+        int x2 = -sx2 * (meter->needle.len + tl) + meter->box.mid.x;
+        int y2 = -sy2 * (meter->needle.len + tl) + meter->needle.base.y;
+        int x3 = -sx2 * meter->needle.len + meter->box.mid.x;
+        int y3 = -sy2 * meter->needle.len + meter->needle.base.y;
+        
+        //Serial.print("Full range =%d: " );
+        //Serial.println( meter->needle.full_range );
+        Serial.printf("xyz: %d %d %d %d \n",x0,y0,x1,y1 );
+        Serial.printf("xyz: %d %d %d %d \n",x2,y2,x3,y3 );
+        
+
+        for (uint8_t sindx = 0; sindx < NBR_SECTIONS; sindx++)
+        {
+            if (( i >= meter->needle.section[sindx].range[0]) && 
+               (i < meter->needle.section[sindx].range[1]))
+            {
+                Serial.printf("i xyz: %d %d %d %d \n",i, x0,y0,x1,y1 );
+                Serial.printf("i xyz: %d %d %d %d \n",i, x2,y2,x3,y3 );
+
+                tft.fillTriangle(x0, y0, x1, y1, x2, y2, meter->needle.section[sindx].color );
+                tft.fillTriangle(x1, y1, x2, y2, x3, y3, meter->needle.section[sindx].color );
+            }
+        }
+
+        if (i % 25 != 0) tl = 8;
+        // Recalculate coords incase tick lenght changed
+        x0 = -sx * (meter->needle.len + tl) + meter->box.mid.x;
+        y0 = -sy * (meter->needle.len + tl) + meter->needle.base.y;
+        x1 = -sx * meter->needle.len + meter->box.mid.x;
+        y1 = -sy * meter->needle.len + meter->needle.base.y;
+
+    // Draw tick
+    tft.drawLine(x0, y0, x1, y1, TFT_BLACK);
+
+
 
         // Yellow zone limits
-        if (i >= -50 && i < 0) {
+        //if (i >= -50 && i < 0) 
+        /*
+        {
             tft.fillTriangle(x0, y0, x1, y1, x2, y2, TFT_YELLOW);
             tft.fillTriangle(x1, y1, x2, y2, x3, y3, TFT_YELLOW);
         }
-
+        
         // Green zone limits
         if (i >= 0 && i < 25) {
             tft.fillTriangle(x0, y0, x1, y1, x2, y2, TFT_GREEN);
@@ -152,16 +265,30 @@ void draw_meter(meter_st *meter)
             tft.fillTriangle(x0, y0, x1, y1, x2, y2, TFT_ORANGE);
             tft.fillTriangle(x1, y1, x2, y2, x3, y3, TFT_ORANGE);
         }
+        */
     }
- 
+    for (uint16_t a= meter->needle.range[0]; a<=meter->needle.range[1]; a+=10)
+    {
+        draw_needle(meter, a);
+        delay(500);
+    }
+
 
 }
 
+void draw_meter_value(meter_st *meter, float value)
+{
+    int16_t angle;
+    angle = (value -meter->scale.min)/(meter->scale.max -meter->scale.min)*
+        (meter->needle.range[1]-meter->needle.range[0]) + meter->needle.range[0];
+    draw_needle(meter, angle);    
+}
 
 void loop() {
 
 
   draw_meter(&meter);
+  draw_meter_value(&meter,2.0);
   while(1)
   {
     delay(1);
