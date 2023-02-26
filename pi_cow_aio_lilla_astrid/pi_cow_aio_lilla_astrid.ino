@@ -6,8 +6,8 @@
  *
  */
 //#define PIRPANA
-//#define LILLA_ASTRID
-#define VILLA_ASTRID
+#define LILLA_ASTRID
+//#define VILLA_ASTRID
 #include <stdint.h>
 #include <WiFi.h>
 #include "Adafruit_MQTT.h"
@@ -59,9 +59,10 @@ void setup()
 {
     //Serial.begin(115200);
     Serial.begin(9600);
-    while (!Serial) {
-      ;  // wait for serial port to connect. Needed for native USB port only
-    }
+    delay(4000);
+    //while (!Serial) {
+    //  ;  // wait for serial port to connect. Needed for native USB port only
+    //}
     Serial.println(F("Adafruit IO Example"));
     // Connect to WiFi access point.
     Serial.print(F("Connecting to "));
@@ -133,7 +134,7 @@ void loop()
     if (millis() > next_publ)
     {
         next_publ = millis() + AIO_PUBLISH_INTERVAL_ms;
-        ctrl.temp = PCT2075.getsensor_temperature();
+        ctrl.temp = PCT2075.getTemperature();
 
         Serial.print("temperature = ");
         Serial.print(ctrl.temp);
