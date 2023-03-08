@@ -59,6 +59,9 @@ void setup()
 {
     //Serial.begin(115200);
     Serial.begin(9600);
+    Serial1.setRX(2);
+    Serial1.setTX(1);
+    Serial1.begin(9600);
     delay(4000);
     //while (!Serial) {
     //  ;  // wait for serial port to connect. Needed for native USB port only
@@ -123,6 +126,7 @@ void connect() {
 
 void loop() 
 {
+    Serial1.println("test");
     // ping adafruit io a few times to make sure we remain connected
     if(! mqtt.ping(3)) 
     {
