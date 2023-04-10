@@ -10,6 +10,9 @@
 //#define LILLA_ASTRID
 //#define VILLA_ASTRID
 #include <stdint.h>
+#include "stdio.h"
+#include "pico/stdlib.h"
+#include "hardware/uart.h"
 #include <WiFi.h>
 #include "Adafruit_MQTT.h"
 #include "Adafruit_MQTT_Client.h"
@@ -51,6 +54,8 @@ typedef struct
     float       temp;
     float       humidity;
     float       lux;
+    float       ldr1;
+    float       ldr2;
     uint16_t    set_temp;
     bool        heat_on;
     fault_cntr_st   fault_cntr;
@@ -72,11 +77,16 @@ Adafruit_VEML7700 veml = Adafruit_VEML7700();
 // infrapale/feeds/villaastrid.tupa-hum
 // infrapale/feeds/villaastrid.ulko-temp
 // infrapale/feeds/villaastrid.ulko-hum
+// infrapale/feeds/villaastrid.ulko-ldr-1
+// infrapale/feeds/villaastrid.ulko-ldr-2
 
 Adafruit_MQTT_Client mqtt(&client, AIO_SERVER, AIO_SERVERPORT, AIO_USERNAME, AIO_KEY);
 Adafruit_MQTT_Publish sensor_temperature = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/villaastrid.ulko-temp");
 Adafruit_MQTT_Publish sensor_humidity = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/villaastrid.ulko-hum");
 Adafruit_MQTT_Publish sensor_lux = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/villaastrid.ulko-lux");
+Adafruit_MQTT_Publish sensor_ldr1 = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/villaastrid.ulko-ldr-1");
+Adafruit_MQTT_Publish sensor_ldr2 = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/villaastrid.ulko-ldr-2");
+
 // Adafruit_MQTT_Subscribe set_temperature = Adafruit_MQTT_Subscribe(&mqtt, AIO_USERNAME "/feeds/villaastrid.khh-set-temperature");
 
 control_st ctrl = 
@@ -153,8 +163,18 @@ void setup()
     connect();
     next_publ = millis() + 5000;
     ctrl.publ_indx = 0;
-    Serial1.println("<OL1:2345.1>");
-
+    while(0)
+    {
+        //Serial1.println("<OL1:2345.1>");
+        //Serial.println("<OL1:2345.1>");
+        int ldr1 = analogRead(A0);
+        Serial.print("LDR1 = "); Serial.println(ldr1);
+        int ldr2 = analogRead(A1);
+        Serial.print("LDR2 = "); Serial.println(ldr2);
+        delay(1000);
+        Watchdog.reset();
+    }
+    
     
 }
 
@@ -306,8 +326,20 @@ void loop()
                         ctrl.fault_cntr.lux_fault++;
                         Serial.println("Lux reading failed");
                     }    
-                     ctrl.publ_indx = 0;
-                    break;    
+                    ctrl.publ_indx++;
+                    break;  
+                case 3:     
+                    ctrl.ldr1 = (float) analogRead(A0);
+                    publ_status = sensor_ldr1.publish(ctrl.ldr1); 
+                    report_publ_status(publ_status);                    
+                    ctrl.publ_indx++;
+                    break;  
+                case 4:     
+                    ctrl.ldr2 = (float) analogRead(A1);
+                    publ_status = sensor_ldr2.publish(ctrl.ldr2); 
+                    report_publ_status(publ_status);                    
+                    ctrl.publ_indx = 0;
+                    break;  
                 default:
                     ctrl.publ_indx = 0;
                     break;
