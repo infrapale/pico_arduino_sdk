@@ -6,9 +6,9 @@
  * https://github.com/infrapale/pico_arduino_sdk.git
  *
  */
-#define PIRPANA
+//#define PIRPANA
 //#define LILLA_ASTRID
-//#define VILLA_ASTRID
+#define VILLA_ASTRID
 #include <stdint.h>
 #include "stdio.h"
 #include "pico/stdlib.h"
@@ -38,8 +38,9 @@
 
 #define SEALEVELPRESSURE_HPA (1013.25)
 
-#define PIN_SERIAL1_TX (0u)
-#define PIN_SERIAL1_RX (1u)
+#define PIN_SERIAL1_TX  (0u)
+#define PIN_SERIAL1_RX  (1u)
+#define PIN_I2C_PWR_EN  (15u)
 
 typedef struct
 {
@@ -112,6 +113,8 @@ void setup()
     Serial.begin(9600);
     Serial1.begin(9600);
     delay(4000);
+    pinMode(PIN_I2C_PWR_EN, OUTPUT);
+    digitalWrite(PIN_I2C_PWR_EN,LOW);
     //while (!Serial) {
     //  ;  // wait for serial port to connect. Needed for native USB port only
     //}
@@ -130,12 +133,16 @@ void setup()
       while (1);
     }
 
-    if (!veml.begin(&Wire1)) {
+    /*
+    if (!veml.begin(&Wire1)) 
+    {
         Serial.println("Sensor not found");
         while (1);
     }
-  Serial.println("Sensor found");
+  
 
+  Serial.println("Sensor found");
+  */
     // Set up oversampling and filter initialization
     bme.setTemperatureOversampling(BME680_OS_8X);
     bme.setHumidityOversampling(BME680_OS_2X);
@@ -291,7 +298,7 @@ void loop()
                     {                                                        
                         Serial.println("Error when reading BME680");
                     }
-                    ctrl.publ_indx++;
+                    ctrl.publ_indx += 2;
                     break;
                 case 2:
                     ctrl.lux = veml.readLux(VEML_LUX_AUTO);
