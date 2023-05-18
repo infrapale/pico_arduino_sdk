@@ -5,9 +5,9 @@
  * https://github.com/infrapale/pico_arduino_sdk.git
  *
  */
-//#define PIRPANA
+#define PIRPANA
 //#define LILLA_ASTRID
-#define VILLA_ASTRID
+//#define VILLA_ASTRID
 #include <stdint.h>
 #include <WiFi.h>
 #include "Adafruit_MQTT.h"
@@ -27,6 +27,15 @@
 #define AIO_USERNAME    IO_USERNAME
 #define AIO_KEY         IO_KEY
 #define AIO_PUBLISH_INTERVAL_ms  60000*5
+#define AIO_SUBS_FEEDS  4
+
+typedef enum
+{
+    SUBS_KHH_TEMP = 0,
+    SUBS_TUPA_TEMP,
+    SUBS_TUPA_HUM,
+    SUBS_STUDIO_TEMP
+} aio_feeds_et;
 
 typedef struct 
 {
@@ -34,6 +43,17 @@ typedef struct
     uint16_t    set_temp;
     bool        heat_on;
 } control_st;
+
+typedef struct
+{
+    //char topic[64];
+    char label[16];
+    char unit[4]; 
+    Adafruit_MQTT_Subscribe *mqtt;
+} mqtt_subs_feed_st;
+
+
+Adafruit_MQTT_Subscribe *mqtt_subs[AIO_SUBS_FEEDS];
 
 WiFiClient client;
 
@@ -43,9 +63,26 @@ Adafruit_PCT2075 PCT2075;
 // infrapale/feeds/lillaastrid.studio-temp
 // infrapale/feeds/lillaastrid.studio-set-tmp
 // infrapale/feeds/villaastrid.villa-astrid-khh-temperature
+// infrapale/feeds/villaastrid.tupa-temp
+// infrapale/feeds/villaastrid.tupa-hum
 Adafruit_MQTT_Client mqtt(&client, AIO_SERVER, AIO_SERVERPORT, AIO_USERNAME, AIO_KEY);
-// Adafruit_MQTT_Publish sensor_temperature = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/lillaastrid.studio-temp");
-Adafruit_MQTT_Subscribe set_temperature = Adafruit_MQTT_Subscribe(&mqtt, AIO_USERNAME "/feeds/villaastrid.villa-astrid-khh-temperature");
+Adafruit_MQTT_Subscribe astrid_od_temperature   = Adafruit_MQTT_Subscribe(&mqtt, AIO_USERNAME "/feeds/villaastrid.villa-astrid-khh-temperature");
+Adafruit_MQTT_Subscribe astrid_tupa_temperature = Adafruit_MQTT_Subscribe(&mqtt, AIO_USERNAME "/feeds/villaastrid.tupa-temp");
+Adafruit_MQTT_Subscribe astrid_tupa_humidity    = Adafruit_MQTT_Subscribe(&mqtt, AIO_USERNAME "/feeds/feeds/villaastrid.tupa-hum");
+Adafruit_MQTT_Subscribe astrid_parvi_temperature = Adafruit_MQTT_Subscribe(&mqtt, AIO_USERNAME "/feeds/villaastrid.parvi-temp");
+Adafruit_MQTT_Subscribe astrid_studio_temperature = Adafruit_MQTT_Subscribe(&mqtt, AIO_USERNAME "/feeds/lillaastrid.studio-tmp");
+
+mqtt_subs_feed_st subs[AIO_SUBS_FEEDS] =
+{
+    // [SUBS_KHH_TEMP] = {.topic = "/feeds/villaastrid.villa-astrid-khh-temperature" }
+    {"khh temp",    "C",  &astrid_od_temperature},
+    {"tupa temp",   "C",  &astrid_tupa_temperature},
+    {"tupa hum",    "%",  &astrid_tupa_humidity},
+    {"studio temp", "C",  &astrid_studio_temperature}
+    
+};
+
+
 
 control_st ctrl = 
 {
@@ -66,18 +103,15 @@ void setup()
     Serial.println(F("Adafruit IO Example"));
     // Connect to WiFi access point.
     Serial.print(F("Connecting to "));
-    Serial.println(WLAN_SSID);
+    Serial.print(WLAN_SSID);
+    Serial.print(F(" pass: "));
+    Serial.println(WLAN_PASS);
     Wire1.setSCL(7);
     Wire1.setSDA(6);
-    Wire1.begin();
-    PCT2075 = Adafruit_PCT2075();
-    uint32_t count_down_ms = Watchdog.enable(10000);
-    if (!PCT2075.begin(0x37,&Wire1)) 
-    {
-        Serial.println("Couldn't find PCT2075 chip");
-        while (1);
-    }
-    Watchdog.reset();
+    // Wire1.begin();
+
+    // Watchdog.reset();
+    Serial.print(F(" WiFi.begin "));
     WiFi.begin(WLAN_SSID, WLAN_PASS);
     while (WiFi.status() != WL_CONNECTED) 
     {
@@ -85,14 +119,17 @@ void setup()
         Serial.print(F("."));
     }
     Watchdog.reset();
-
     Serial.println();
     Serial.println(F("WiFi connected"));
     Serial.println(F("IP address: "));
     Serial.println(WiFi.localIP());
 
     // connect to adafruit io
-    mqtt.subscribe(&set_temperature);
+    for (uint8_t i = 0; i < AIO_SUBS_FEEDS; i++ )
+    {
+        mqtt.subscribe(subs[i].mqtt);
+    }
+    //mqtt.subscribe(&astrid_od_temperature);
     connect();
     next_publ = millis() + 5000;
 }
@@ -134,33 +171,20 @@ void loop()
     if (millis() > next_publ)
     {
         next_publ = millis() + AIO_PUBLISH_INTERVAL_ms;
-        ctrl.temp = PCT2075.getsensor_temperature();
-
-        Serial.print("temperature = ");
-        Serial.print(ctrl.temp);
-
-        if (! sensor_temperature.publish(ctrl.temp))  //Publish to Adafruit
-        {                     
-            Serial.println(F(" - Failed"));
-        }
-        else 
-        {
-            Serial.println(F(" - Sent!"));
-        }
 
     }
     Adafruit_MQTT_Subscribe *subscription;
     while ((subscription = mqtt.readSubscription(5000))) 
     {
-        if (subscription == &set_temperature) 
+        for (uint8_t indx=0; indx < AIO_SUBS_FEEDS; indx++)
         {
-            Serial.print(F("Set temperature: "));
-            Serial.println((char *)set_temperature.lastread);
-            ctrl.set_temp = atoi((char *)set_temperature.lastread);
-            Serial.println(ctrl.set_temp);
+            if (subscription ==  subs[indx].mqtt)
+            {
+                Serial.print(subs[indx].mqtt->topic);
+                Serial.println((char *) subs[indx].mqtt->lastread); 
+            }
         }
+          
     }
-    Watchdog.reset();
-
-  
+    //Watchdog.reset();
 }
