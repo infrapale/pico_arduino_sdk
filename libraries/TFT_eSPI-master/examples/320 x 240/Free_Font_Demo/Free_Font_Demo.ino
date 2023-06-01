@@ -51,7 +51,6 @@ unsigned long drawTime = 0;
 void setup(void) {
 
   tft.begin();
-
   tft.setRotation(1);
 
 }
