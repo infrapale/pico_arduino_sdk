@@ -1,12 +1,12 @@
-#include <TaHa.h> 
+//#include <TaHa.h> 
 #include "BtnPinOnOff.h"
 
 #define NBR_MENU_KEYS 3
 #define TEST_PIN      17
 #define NBR_OF_TASKS  8
 
-TaHa TaHa_10ms;
-TaHa TaHa_1000ms;
+//TaHa TaHa_10ms;
+//TaHa TaHa_1000ms;
 
 BtnPinOnOff  menu_btn[NBR_MENU_KEYS];
 
@@ -56,9 +56,9 @@ void run_print_cnt(void);
 task_struct_st task[TASK_NBR_OF] =
 { 
     //12345678901234567890
-    {"Task 1000ms        ",run_print_cnt,     TASK_TYPE_INTERVAL, 0, 0, false, true,  5000,  0, 0},
-    {"Print Tasks        ",task_print_header,  TASK_TYPE_INTERVAL, 0, 0, false, false, 5000,  0, 0},
-    {"Task 100ms         ",run_10ms,        TASK_TYPE_IDLE,     0, 0, false, false, 100,  0, 0},
+    {"Task 1000ms        ",run_print_cnt,   TASK_TYPE_INTERVAL, 0, 0, false, true,  5000,  0, 0},
+    {"Print Tasks        ",task_print_all,  TASK_TYPE_INTERVAL, 0, 0, false, true, 15000,  0, 0},
+    {"Task 10ms          ",run_10ms,        TASK_TYPE_INTERVAL, 0, 0, false, true,  10,  0, 0},
     {"Task 100ms         ",run_10ms,        TASK_TYPE_IDLE,     0, 0, false, false, 100,  0, 0},
     {"Task 100ms         ",run_10ms,        TASK_TYPE_IDLE,     0, 0, false, false, 100,  0, 0},
     {"Task 100ms         ",run_10ms,        TASK_TYPE_IDLE,     0, 0, false, false, 100,  0, 0},
@@ -94,19 +94,19 @@ void task_stop( uint8_t indx )
 
 void task_print_header(void)
 {
-    printf("Name  Type Interval State Status Ready Active\n");
+    Serial1.println("Name  Type Interval State Status Ready Active\n");
 }
 
 void task_print(task_struct_st *task_ptr)
-{
-    printf("%s ",task_ptr->label);
-    printf("%2d ",task_ptr->type);
-    printf("%8d ",task_ptr->interval);
-    printf("%4d ",task_ptr->state);
-    printf("%2d ",task_ptr->status);
-    printf("%2d ",task_ptr->is_ready);
-    printf("%2d ",task_ptr->is_active);
-    printf("\n");
+{  
+    Serial1.printf("%s ",task_ptr->label);
+    Serial1.printf("%2d ",task_ptr->type);
+    Serial1.printf("%8d ",task_ptr->interval);
+    Serial1.printf("%4d ",task_ptr->state);
+    Serial1.printf("%2d ",task_ptr->status);
+    Serial1.printf("%2d ",task_ptr->is_ready);
+    Serial1.printf("%2d ",task_ptr->is_active);
+    Serial1.printf("\n");
 }
 
 void task_print_all(void)
@@ -161,42 +161,40 @@ void run_10ms()
 
 void run_1000ms(void)
 {
-    if (digitalRead(TEST_PIN) == LOW )  Serial.println(F("0"));
-    else Serial.println(F("1"));
+    if (digitalRead(TEST_PIN) == LOW )  Serial1.println(F("0"));
+    else Serial1.println(F("1"));
 } 
 
 void run_print_cnt(void)
 {
     static uint16_t cnt;
 
-    Serial.println(cnt++);
+    Serial1.println(cnt++);
 
 }
 
 void setup() {
     // put your setup code here, to run once:
     delay(3000);
-    Serial.begin(9600); // For debug
-    pinMode(TEST_PIN, INPUT_PULLUP);
+    Serial1.begin(9600); // For debug
+    pinMode(14, INPUT_PULLUP);
     //pinMode(17, INPUT_PULLUP);
     //pinMode(32, INPUT_PULLUP);
     //pinMode(34, INPUT_PULLUP);
 
-    /*
-    menu_btn[0].Init(17,'A');
-    menu_btn[1].Init(22,'B');
-    menu_btn[2].Init(28,'C');
-    menu_btn[3].Init(34,'D');
-    */
+    
+    menu_btn[0].Init(14,'A');
+    //menu_btn[1].Init(22,'B');
+    //menu_btn[2].Init(28,'C');
+    //menu_btn[3].Init(34,'D');
+    
 
-    while (!Serial) 
+    while (!Serial1) 
     {
       ;  // wait for serial port to connect. Needed for native USB port only
     }
 
-    //TaHa_10ms.set_interval(10, RUN_RECURRING, run_10ms); 
-    //TaHa_10ms.set_interval(1000, RUN_RECURRING, run_1000ms); 
-    Serial.println(F("Setup done"));
+    Serial1.println(F("Setup done"));
 }
 
 void loop() 
@@ -204,25 +202,19 @@ void loop()
     //if (digitalRead(TEST_PIN) == LOW )  Serial.println(F("0"));
     //else Serial.println(F("1"));
     task_schedule();
-    //Serial.println(millis());
-    //delay(1000);
-    // put your main code here, to run repeatedly:
-    /*
-    TaHa_10ms.run();
-    TaHa_1000ms.run();
-    
+   
     for( uint8_t i= 0; i < NBR_MENU_KEYS; i++)
     {
         char c = menu_btn[i].Read();
         if (c != 0x00) 
         {
             if ((c & 0b10000000) == 0) 
-                Serial.print("On ");
+                Serial1.printf("On");
             else 
-                Serial.print("Off ");
-            Serial.println(c & 0b01111111);
+                Serial1.printf("Off");
+            Serial.printf("%c\n",c & 0b01111111);
 
         }
     }
-    */
+  
 }
