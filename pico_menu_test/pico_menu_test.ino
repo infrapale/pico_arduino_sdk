@@ -212,7 +212,7 @@ void loop()
                 Serial1.printf("On");
             else 
                 Serial1.printf("Off");
-            Serial.printf("%c\n",c & 0b01111111);
+            Serial1.printf("%c\n",c & 0b01111111);
 
         }
     }
