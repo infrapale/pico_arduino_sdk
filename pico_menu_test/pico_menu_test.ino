@@ -7,8 +7,6 @@
 #define PIN_LDSW      15
 #define NBR_OF_TASKS  8
 
-//TaHa TaHa_10ms;
-//TaHa TaHa_1000ms;
 
 BtnPinOnOff  menu_btn[NBR_MENU_KEYS];
 
@@ -51,6 +49,7 @@ void print_all_tasks(void)
 {
     task_print_all(&task[0], TASK_NBR_OF);
 }
+
 
 void run_10ms()
 {
